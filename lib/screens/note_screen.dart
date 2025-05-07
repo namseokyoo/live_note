@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'dart:html' as html;
 
 class NoteScreen extends StatefulWidget {
   final String noteId;
@@ -405,12 +406,33 @@ class _NoteScreenState extends State<NoteScreen> {
 
   // 접속 사용자 추가
   void _addConnectedUser() {
-    _database
-        .child('notes/${widget.noteId}/connectedUsers/${widget.username}')
-        .set(true)
-        .catchError((error) {
+    final userRef = _database
+        .child('notes/${widget.noteId}/connectedUsers/${widget.username}');
+
+    // 현재 사용자를 접속 중으로 표시
+    userRef.set(true).catchError((error) {
       print('Error adding connected user: $error');
     });
+
+    // 연결이 끊어질 때 (브라우저 종료 등) 자동으로 사용자 상태 제거 설정
+    userRef.onDisconnect().remove().catchError((error) {
+      print('Error setting onDisconnect handler: $error');
+    });
+
+    // 페이지 닫힘 이벤트 감지 (추가 안전장치)
+    _setupBeforeUnloadHandler();
+  }
+
+  // beforeunload 이벤트 핸들러 설정 (페이지 닫힘 감지)
+  void _setupBeforeUnloadHandler() {
+    try {
+      html.window.onBeforeUnload.listen((event) {
+        // 페이지가 닫히기 전에 수동으로 연결 상태 제거 시도
+        _removeConnectedUser();
+      });
+    } catch (e) {
+      print('Unable to set beforeunload handler: $e');
+    }
   }
 
   // 접속 사용자 제거

@@ -180,10 +180,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
+    if (username.isEmpty) {
+      _showError('사용자 이름을 입력해주세요.');
+      return;
+    }
+
     try {
       final snapshot = await _database.child('notes/$noteId').get();
       if (!snapshot.exists) {
         throw Exception('노트를 찾을 수 없습니다');
+      }
+
+      // 이미 같은 이름으로 접속한 사용자가 있는지 확인
+      final connectedUsersSnapshot =
+          await _database.child('notes/$noteId/connectedUsers').get();
+      if (connectedUsersSnapshot.exists) {
+        final connectedUsers =
+            Map<String, dynamic>.from(connectedUsersSnapshot.value as Map);
+        if (connectedUsers.containsKey(username)) {
+          throw Exception('이미 같은 이름으로 접속한 사용자가 있습니다. 다른 이름을 사용해주세요.');
+        }
       }
 
       final noteData = snapshot.value as Map<dynamic, dynamic>;
@@ -191,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final isGuest = noteData['guestPassword'] == password;
 
       if (!isHost && !isGuest) {
-        throw Exception('못된 비밀번호입니다');
+        throw Exception('잘못된 비밀번호입니다.');
       }
 
       Navigator.push(
@@ -207,20 +223,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (e) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Error'),
-          content: Text(e.toString()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
-            ),
-          ],
-        ),
-      );
+      _showError(e.toString());
     }
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('오류'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatTimestamp(DateTime timestamp) {

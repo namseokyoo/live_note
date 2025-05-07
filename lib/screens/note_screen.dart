@@ -40,6 +40,9 @@ class _NoteScreenState extends State<NoteScreen> {
   bool _isGuestListOpen = false; // 게스트 목록 표시 여부
   List<String> _connectedGuests = []; // 접속 중인 게스트 목록
 
+  // 호스트가 현재 접속 중인지 여부를 저장하는 변수
+  bool _isHostConnected = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +56,9 @@ class _NoteScreenState extends State<NoteScreen> {
       _listenForEditRequests();
       _listenForEditingUsers();
       _listenForConnectedGuests();
+    } else {
+      // 게스트인 경우 호스트 접속 상태를 실시간으로 감지
+      _listenForHostConnection();
     }
   }
 
@@ -141,37 +147,25 @@ class _NoteScreenState extends State<NoteScreen> {
   }
 
   void _requestEditPermission() {
-    // 먼저 현재 접속자 목록을 가져와서 호스트가 있는지 확인
+    // 버튼을 클릭하는 시점에 호스트 접속 여부를 실시간으로 확인
     _database
-        .child('notes/${widget.noteId}/connectedUsers')
+        .child('notes/${widget.noteId}/hostUsers')
         .get()
-        .then((snapshot) {
-      if (snapshot.value == null) {
+        .then((hostSnapshot) {
+      if (hostSnapshot.value == null ||
+          !(hostSnapshot.value as Map).isNotEmpty) {
+        // 호스트가 접속중이지 않음
         _showHostNotConnectedMessage();
         return;
       }
 
-      final users = Map<String, dynamic>.from(snapshot.value as Map);
-
-      // 호스트 접속 여부 확인을 위해 호스트 목록 확인
+      // 호스트가 접속중이므로 수정 요청 진행
       _database
-          .child('notes/${widget.noteId}/hostUsers')
-          .get()
-          .then((hostSnapshot) {
-        if (hostSnapshot.value == null ||
-            !_checkHostConnected(
-                users, hostSnapshot.value as Map<dynamic, dynamic>?)) {
-          // 호스트가 접속중이지 않음
-          _showHostNotConnectedMessage();
-        } else {
-          // 호스트가 접속중이므로 수정 요청 진행
-          _database
-              .child('notes/${widget.noteId}/editRequests/${widget.username}')
-              .set(true)
-              .catchError((error) {
-            print('Error requesting edit permission: $error');
-          });
-        }
+          .child('notes/${widget.noteId}/editRequests/${widget.username}')
+          .set(true)
+          .catchError((error) {
+        print('Error requesting edit permission: $error');
+        _showError('수정 요청 중 오류가 발생했습니다.');
       });
     }).catchError((error) {
       print('Error checking host connection: $error');
@@ -434,28 +428,15 @@ class _NoteScreenState extends State<NoteScreen> {
     });
   }
 
-  // 호스트가 현재 접속 중인지 확인
-  bool _isHostConnected() {
-    // 노트가 첫 생성되면 호스트 이름은 'host'로 저장됨 (이름 변경 가능)
-    // 실제 호스트 접속은 isHost 플래그로 확인
-    return _connectedGuests.any((user) =>
-        _database.child('notes/${widget.noteId}/hostUsers/$user').get() !=
-        null);
-  }
-
-  // 호스트 접속 여부 확인
-  bool _checkHostConnected(
-      Map<String, dynamic> connectedUsers, Map<dynamic, dynamic>? hostUsers) {
-    if (hostUsers == null) return false;
-
-    // 연결된 사용자 중에 호스트 사용자가 있는지 확인
-    for (var user in connectedUsers.keys) {
-      if (hostUsers.containsKey(user)) {
-        return true;
-      }
-    }
-
-    return false;
+  // 호스트가 접속 상태 실시간 감지 (게스트용)
+  void _listenForHostConnection() {
+    _database.child('notes/${widget.noteId}/hostUsers').onValue.listen((event) {
+      setState(() {
+        // hostUsers가 존재하고 비어있지 않으면 호스트가 접속 중인 것
+        _isHostConnected = event.snapshot.exists &&
+            (event.snapshot.value as Map?)?.isNotEmpty == true;
+      });
+    });
   }
 
   // 호스트가 접속중이지 않을 때 메시지 표시
@@ -929,11 +910,18 @@ class _NoteScreenState extends State<NoteScreen> {
       floatingActionButton: widget.isHost
           ? null
           : FloatingActionButton.extended(
-              onPressed:
-                  _canEdit ? _removeEditPermission : _requestEditPermission,
+              onPressed: _canEdit
+                  ? _removeEditPermission
+                  : (_isHostConnected
+                      ? _requestEditPermission
+                      : () => _showHostNotConnectedMessage()),
               icon: Icon(_canEdit ? Icons.close : Icons.edit),
-              label: Text(_canEdit ? '수정 중지' : '수정 요청'),
-              backgroundColor: _canEdit ? Colors.red : Colors.blue,
+              label: Text(_canEdit
+                  ? '수정 중지'
+                  : (_isHostConnected ? '수정 요청' : '호스트 미접속')),
+              backgroundColor: _canEdit
+                  ? Colors.red
+                  : (_isHostConnected ? Colors.blue : Colors.grey),
             ),
     );
   }

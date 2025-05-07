@@ -165,6 +165,11 @@ class _NoteScreenState extends State<NoteScreen> {
         });
 
         print('수정 요청 감지: $_editRequests'); // 디버깅용 로그
+
+        // 즉시 오버레이 업데이트 트리거
+        if (_editRequests.isNotEmpty) {
+          _refreshRequestOverlay();
+        }
       } else {
         setState(() {
           _editRequests.clear();
@@ -180,9 +185,6 @@ class _NoteScreenState extends State<NoteScreen> {
       for (var oldGuest in prevRequests.difference(_editRequests.toSet())) {
         _cancelAndRemoveTimerForGuest(oldGuest);
       }
-
-      // 요청이 변경될 때마다 오버레이 업데이트
-      _refreshRequestOverlay();
     });
   }
 
@@ -256,11 +258,15 @@ class _NoteScreenState extends State<NoteScreen> {
   }
 
   void _refreshRequestOverlay() {
-    _requestOverlay?.remove();
-    _requestOverlay = null;
+    if (_requestOverlay != null) {
+      _requestOverlay!.remove();
+      _requestOverlay = null;
+    }
 
+    // 오버레이를 지연시켜 다음 프레임에서 표시
     if (_editRequests.isNotEmpty && widget.isHost && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 즉시 실행하지 않고 다음 프레임을 기다림
+      Future.microtask(() {
         if (mounted) {
           _showEditRequestOverlay();
         }
@@ -279,11 +285,18 @@ class _NoteScreenState extends State<NoteScreen> {
   void _showEditRequestOverlay() {
     if (!mounted) return;
 
+    // 이미 오버레이가 있다면 제거
+    if (_requestOverlay != null) {
+      _requestOverlay!.remove();
+      _requestOverlay = null;
+    }
+
     _requestOverlay = OverlayEntry(
       builder: (context) => Positioned(
         top: 50.0,
         right: 10.0,
         child: Material(
+          elevation: 8.0,
           color: Colors.transparent,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -322,8 +335,14 @@ class _NoteScreenState extends State<NoteScreen> {
       ),
     );
 
-    if (mounted) {
-      Overlay.of(context).insert(_requestOverlay!);
+    // 오버레이 삽입 전에 다시 한번 마운트 상태 확인
+    if (mounted && _editRequests.isNotEmpty) {
+      try {
+        Overlay.of(context).insert(_requestOverlay!);
+        print('오버레이 삽입 성공: $_editRequests');
+      } catch (e) {
+        print('오버레이 삽입 실패: $e');
+      }
     }
   }
 

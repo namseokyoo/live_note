@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'dart:html' as html;
 import 'note_screen.dart';
 import 'createnote_screen.dart';
 import '../widgets/folded_card.dart';
@@ -24,11 +25,49 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _notes = [];
   List<Map<String, dynamic>> _filteredNotes = [];
   bool _isLoading = false;
+  final _joinNoteFormKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
     _initializeFirebase();
+    _checkUrlParameters();
+  }
+
+  // URL에서 노트 ID를 가져와 텍스트 필드에 설정
+  void _checkUrlParameters() {
+    final uri = Uri.parse(html.window.location.href);
+    if (uri.queryParameters.containsKey('noteId')) {
+      final noteId = uri.queryParameters['noteId'];
+      if (noteId != null && noteId.isNotEmpty) {
+        setState(() {
+          _noteIdController.text = noteId;
+        });
+
+        // 사용자 이름 입력 필드로 포커스 이동
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_joinNoteFormKey.currentContext != null) {
+            // 폼을 화면에 표시되는 위치로 스크롤
+            Scrollable.ensureVisible(
+              _joinNoteFormKey.currentContext!,
+              duration: Duration(milliseconds: 500),
+              alignment: 0.5,
+            );
+            // 사용자 이름 필드에 포커스
+            FocusScope.of(context).requestFocus(FocusNode());
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _noteIdController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeFirebase() async {
@@ -285,44 +324,50 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.grey[850],
                             child: Padding(
                               padding: EdgeInsets.all(16.0),
-                              child: Column(
-                                children: [
-                                  TextField(
-                                    controller: _noteIdController,
-                                    decoration: InputDecoration(
-                                      labelText: '노트 ID',
-                                      prefixIcon: Icon(Icons.note),
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  TextField(
-                                    controller: _usernameController,
-                                    decoration: InputDecoration(
-                                      labelText: '사용자 이름',
-                                      prefixIcon: Icon(Icons.person),
-                                    ),
-                                  ),
-                                  SizedBox(height: 12),
-                                  TextField(
-                                    controller: _passwordController,
-                                    decoration: InputDecoration(
-                                      labelText: '비밀번호',
-                                      prefixIcon: Icon(Icons.lock),
-                                    ),
-                                    obscureText: true,
-                                  ),
-                                  SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: _joinNote,
-                                    child: Text('노트 참여'),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 32,
-                                        vertical: 12,
+                              child: Form(
+                                key: _joinNoteFormKey,
+                                child: Column(
+                                  children: [
+                                    TextField(
+                                      controller: _noteIdController,
+                                      decoration: InputDecoration(
+                                        labelText: '노트 ID',
+                                        prefixIcon: Icon(Icons.note),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(height: 12),
+                                    TextField(
+                                      controller: _usernameController,
+                                      decoration: InputDecoration(
+                                        labelText: '사용자 이름',
+                                        prefixIcon: Icon(Icons.person),
+                                      ),
+                                      autofocus:
+                                          _noteIdController.text.isNotEmpty,
+                                    ),
+                                    SizedBox(height: 12),
+                                    TextField(
+                                      controller: _passwordController,
+                                      decoration: InputDecoration(
+                                        labelText: '비밀번호',
+                                        prefixIcon: Icon(Icons.lock),
+                                      ),
+                                      obscureText: true,
+                                      onSubmitted: (_) => _joinNote(),
+                                    ),
+                                    SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: _joinNote,
+                                      child: Text('노트 참여'),
+                                      style: ElevatedButton.styleFrom(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 32,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),

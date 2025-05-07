@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class NoteScreen extends StatefulWidget {
   final String noteId;
@@ -95,30 +97,6 @@ class _NoteScreenState extends State<NoteScreen> {
         _updateEditingOverlay();
       });
     });
-
-    // 편집 요청 리스너
-    noteRef.child('editRequests').onValue.listen((event) {
-      if (!mounted) return;
-      if (event.snapshot.value != null) {
-        final requests = Map<String, dynamic>.from(event.snapshot.value as Map);
-        setState(() {
-          _editRequests.clear();
-          _editRequests.addAll(requests.keys);
-        });
-      } else {
-        setState(() {
-          _editRequests.clear();
-        });
-      }
-
-      for (var guest in _editRequests) {
-        if (!_editRequestTimers.containsKey(guest)) {
-          _startRequestTimer(guest);
-        }
-      }
-
-      _refreshRequestOverlay();
-    });
   }
 
   void _checkEditPermission() {
@@ -175,7 +153,7 @@ class _NoteScreenState extends State<NoteScreen> {
         .child('notes/${widget.noteId}/editRequests')
         .onValue
         .listen((event) {
-      if (!widget.isHost) return;
+      if (!mounted || !widget.isHost) return;
 
       final prevRequests = Set<String>.from(_editRequests);
 
@@ -185,6 +163,8 @@ class _NoteScreenState extends State<NoteScreen> {
           _editRequests.clear();
           _editRequests.addAll(requests.keys);
         });
+
+        print('수정 요청 감지: $_editRequests'); // 디버깅용 로그
       } else {
         setState(() {
           _editRequests.clear();
@@ -201,6 +181,7 @@ class _NoteScreenState extends State<NoteScreen> {
         _cancelAndRemoveTimerForGuest(oldGuest);
       }
 
+      // 요청이 변경될 때마다 오버레이 업데이트
       _refreshRequestOverlay();
     });
   }
@@ -277,8 +258,13 @@ class _NoteScreenState extends State<NoteScreen> {
   void _refreshRequestOverlay() {
     _requestOverlay?.remove();
     _requestOverlay = null;
-    if (_editRequests.isNotEmpty && widget.isHost) {
-      _showEditRequestOverlay();
+
+    if (_editRequests.isNotEmpty && widget.isHost && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showEditRequestOverlay();
+        }
+      });
     }
   }
 
@@ -291,6 +277,8 @@ class _NoteScreenState extends State<NoteScreen> {
   }
 
   void _showEditRequestOverlay() {
+    if (!mounted) return;
+
     _requestOverlay = OverlayEntry(
       builder: (context) => Positioned(
         top: 50.0,
@@ -334,7 +322,9 @@ class _NoteScreenState extends State<NoteScreen> {
       ),
     );
 
-    Overlay.of(context).insert(_requestOverlay!);
+    if (mounted) {
+      Overlay.of(context).insert(_requestOverlay!);
+    }
   }
 
   void _showEditingUsersOverlay() {
@@ -693,6 +683,23 @@ class _NoteScreenState extends State<NoteScreen> {
                             fontSize: 14,
                             color: Colors.grey[400],
                           ),
+                        ),
+                        SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.share, size: 20, color: Colors.blue),
+                          tooltip: '공유 링크 복사',
+                          onPressed: () {
+                            final shareUrl =
+                                'https://livenote-caf0d.firebaseapp.com/?noteId=${widget.noteId}';
+                            Clipboard.setData(ClipboardData(text: shareUrl));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('노트 링크가 클립보드에 복사되었습니다.'),
+                                duration: Duration(seconds: 2),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),

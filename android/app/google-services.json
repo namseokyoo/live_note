@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "281684919727",
+    "project_id": "livenote-caf0d",
+    "storage_bucket": "livenote-caf0d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:281684919727:android:ad21eb84b09e4206af5b5a",
+        "android_client_info": {
+          "package_name": "com.example.livenote"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDX0JzlxMCMJLyjD03hjxGX1gIBxVc33OM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

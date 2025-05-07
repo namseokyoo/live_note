@@ -1,0 +1,58 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "livenote-caf0d",
+          "appId": "1:281684919727:android:ad21eb84b09e4206af5b5a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "livenote-caf0d",
+          "appId": "1:281684919727:ios:5156810c2bf45c33af5b5a",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "livenote-caf0d",
+          "appId": "1:281684919727:ios:5156810c2bf45c33af5b5a",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "livenote-caf0d",
+          "configurations": {
+            "android": "1:281684919727:android:ad21eb84b09e4206af5b5a",
+            "ios": "1:281684919727:ios:5156810c2bf45c33af5b5a",
+            "macos": "1:281684919727:ios:5156810c2bf45c33af5b5a",
+            "web": "1:281684919727:web:bbea05391e135cc2af5b5a",
+            "windows": "1:281684919727:web:1f08a57dd9517f6faf5b5a"
+          }
+        }
+      }
+    }
+  },
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

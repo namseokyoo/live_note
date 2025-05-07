@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "notes": {
+      // Firebase Realtime Database 보안 규칙
+      // - 인증된 사용자만 읽기/쓰기 가능
+      // - createdAt, title 필드에 대한 인덱스 생성
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": [
+        "createdAt",
+        "title"
+      ]
+    }
+  }
+}

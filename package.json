@@ -1,0 +1,23 @@
+{
+  "name": "live_note",
+  "version": "1.0.0",
+  "description": "A new Flutter project.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-admin": "^13.0.1",
+    "firebase-functions": "^6.1.2"
+  },
+  "devDependencies": {
+    "eslint": "^9.16.0"
+  }
+}

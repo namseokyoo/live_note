@@ -141,11 +141,41 @@ class _NoteScreenState extends State<NoteScreen> {
   }
 
   void _requestEditPermission() {
+    // 먼저 현재 접속자 목록을 가져와서 호스트가 있는지 확인
     _database
-        .child('notes/${widget.noteId}/editRequests/${widget.username}')
-        .set(true)
-        .catchError((error) {
-      print('Error requesting edit permission: $error');
+        .child('notes/${widget.noteId}/connectedUsers')
+        .get()
+        .then((snapshot) {
+      if (snapshot.value == null) {
+        _showHostNotConnectedMessage();
+        return;
+      }
+
+      final users = Map<String, dynamic>.from(snapshot.value as Map);
+
+      // 호스트 접속 여부 확인을 위해 호스트 목록 확인
+      _database
+          .child('notes/${widget.noteId}/hostUsers')
+          .get()
+          .then((hostSnapshot) {
+        if (hostSnapshot.value == null ||
+            !_checkHostConnected(
+                users, hostSnapshot.value as Map<dynamic, dynamic>?)) {
+          // 호스트가 접속중이지 않음
+          _showHostNotConnectedMessage();
+        } else {
+          // 호스트가 접속중이므로 수정 요청 진행
+          _database
+              .child('notes/${widget.noteId}/editRequests/${widget.username}')
+              .set(true)
+              .catchError((error) {
+            print('Error requesting edit permission: $error');
+          });
+        }
+      });
+    }).catchError((error) {
+      print('Error checking host connection: $error');
+      _showError('호스트 접속 상태를 확인하는 중 오류가 발생했습니다.');
     });
   }
 
@@ -404,6 +434,80 @@ class _NoteScreenState extends State<NoteScreen> {
     });
   }
 
+  // 호스트가 현재 접속 중인지 확인
+  bool _isHostConnected() {
+    // 노트가 첫 생성되면 호스트 이름은 'host'로 저장됨 (이름 변경 가능)
+    // 실제 호스트 접속은 isHost 플래그로 확인
+    return _connectedGuests.any((user) =>
+        _database.child('notes/${widget.noteId}/hostUsers/$user').get() !=
+        null);
+  }
+
+  // 호스트 접속 여부 확인
+  bool _checkHostConnected(
+      Map<String, dynamic> connectedUsers, Map<dynamic, dynamic>? hostUsers) {
+    if (hostUsers == null) return false;
+
+    // 연결된 사용자 중에 호스트 사용자가 있는지 확인
+    for (var user in connectedUsers.keys) {
+      if (hostUsers.containsKey(user)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // 호스트가 접속중이지 않을 때 메시지 표시
+  void _showHostNotConnectedMessage() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[850],
+          title: Text(
+            '알림',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            '호스트가 접속중이 아닙니다. 호스트가 접속한 후에 수정 요청이 가능합니다.',
+            style: TextStyle(color: Colors.grey[300]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('확인'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // 일반 오류 메시지 표시
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[850],
+        title: Text(
+          '오류',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(color: Colors.grey[300]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 접속 사용자 추가
   void _addConnectedUser() {
     final userRef = _database
@@ -418,6 +522,21 @@ class _NoteScreenState extends State<NoteScreen> {
     userRef.onDisconnect().remove().catchError((error) {
       print('Error setting onDisconnect handler: $error');
     });
+
+    // 호스트인 경우 호스트 목록에도 추가
+    if (widget.isHost) {
+      final hostUserRef = _database
+          .child('notes/${widget.noteId}/hostUsers/${widget.username}');
+
+      hostUserRef.set(true).catchError((error) {
+        print('Error adding host user: $error');
+      });
+
+      // 연결 끊길 때 호스트 목록에서도 제거
+      hostUserRef.onDisconnect().remove().catchError((error) {
+        print('Error setting host onDisconnect handler: $error');
+      });
+    }
 
     // 페이지 닫힘 이벤트 감지 (추가 안전장치)
     _setupBeforeUnloadHandler();
@@ -443,6 +562,16 @@ class _NoteScreenState extends State<NoteScreen> {
         .catchError((error) {
       print('Error removing connected user: $error');
     });
+
+    // 호스트인 경우 호스트 목록에서도 제거
+    if (widget.isHost) {
+      _database
+          .child('notes/${widget.noteId}/hostUsers/${widget.username}')
+          .remove()
+          .catchError((error) {
+        print('Error removing host user: $error');
+      });
+    }
   }
 
   // 상단 사용자 정보 위젯

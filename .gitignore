@@ -46,3 +46,13 @@ app.*.map.json
 
 # Node.js
 node_modules/
+
+# Firebase
+**/google-services.json
+**/firebase_options.dart
+**/GoogleService-Info.plist
+.firebase/
+
+# Environment files
+.env
+.env.*
